@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  postgres-sonar:
+    image: postgres:15
+    container_name: postgres-sonar
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonarpassword
+      POSTGRES_DB: sonarqubedb
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - sonar-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sonar -d sonarqubedb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  sonarqube-service:
+    image: sonarqube:lts-community
+    container_name: sonarqube-server
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://postgres-sonar:5432/sonarqubedb
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: sonarpassword
+    volumes:
+      - sonarqube-data:/opt/sonarqube/data
+      - sonarqube-extensions:/opt/sonarqube/extensions
+      - sonarqube-logs:/opt/sonarqube/logs
+    networks:
+      - sonar-net
+    depends_on:
+      postgres-sonar:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "ls /opt/sonarqube > /dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  postgres-data:
+  sonarqube-data:
+  sonarqube-extensions:
+  sonarqube-logs:
+
+networks:
+  sonar-net:
+    driver: bridge
